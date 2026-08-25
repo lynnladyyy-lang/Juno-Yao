@@ -4,7 +4,7 @@
 
 ## 这是什么
 
-一个放在 WorkBuddy 用户级目录下的本地转换工具。**双击启动器会自动打开一个网页**：页面右侧选择 Word 文件、点击下方「开始转换」，左侧即可看到每个文件的转换结果。
+一个本地 Word 转 Markdown 工具。**双击启动器会自动打开一个网页**：页面右侧选择 Word 文件、点击下方「开始转换」，左侧即可看到每个文件的转换结果。
 
 ## 文件说明
 
@@ -14,9 +14,12 @@
 | `word2md_server.py` | 本地 Web 后端（接收文件、调用转换、返回结果） |
 | `index.html` | 网页界面（右选文件 / 左看结果 / 页头选输出目录 / 下转换按钮） |
 | `word2md.py` | 核心转换引擎（也可命令行调用） |
+| `requirements.txt` | Python 依赖清单（`pip install -r requirements.txt`） |
 | `README.md` | 本说明 |
 
 ## 快速开始
+
+> 首次使用请先完成下方「环境要求与安装」一节（安装 Python 和依赖）。
 
 1. 双击 `word2md.bat`，会自动打开浏览器页面；
 2. 在页面**右侧**拖拽或点击选择 Word 文件（可多选，支持 `.doc` / `.docx` / `.rtf`）；
@@ -27,11 +30,7 @@
 
 ## 输出位置
 
-默认输出到：
-
-```
-C:\Users\Lynn\Downloads\word2md_output\
-```
+默认输出到当前用户「下载」文件夹下的 `word2md_output\` 子目录（例如 `C:\Users\你的用户名\Downloads\word2md_output\`）。
 
 也可以在页面右上角直接粘贴路径（点「应用」）或点「浏览…」弹窗选择任意输出目录。文档中的图片会导出到输出目录下的 `xxx_files/` 文件夹。
 
@@ -45,24 +44,28 @@ python word2md.py --dir 文件夹                     # 转换文件夹内所有
 python word2md.py --dir 文件夹 --out 输出目录 -r   # 递归 + 指定输出目录
 ```
 
-## 依赖
+## 环境要求与安装
 
-- Python 3.13（已随 WorkBuddy 内置）
-- `pywin32`：驱动 MS Word 的 COM 自动化接口
-- `markdownify`：把 HTML 转成 Markdown
-- `flask`：本地 Web 后端
+本工具依赖以下环境（换到新机器时需自行安装）：
 
-本机已在 WorkBuddy 的 Python 虚拟环境中装好全部依赖：
+| 依赖 | 用途 | 说明 |
+| --- | --- | --- |
+| Windows + Microsoft Word | 转换引擎 | **必需**（脚本通过 Word COM 接口转换文档） |
+| Python 3.8+ | 运行环境 | 安装时勾选「Add python.exe to PATH」 |
+| `pywin32` | 驱动 MS Word | 见下方安装命令 |
+| `markdownify` | HTML → Markdown | 见下方安装命令 |
+| `flask` | 本地 Web 后端 | 见下方安装命令 |
 
-```
-C:\Users\Lynn\.workbuddy\binaries\python\envs\default
-```
+**安装步骤：**
 
-若换到新机器，需要重新安装：
+1. 从 https://www.python.org/downloads/ 安装 Python 3，勾选「Add python.exe to PATH」；
+2. 在本目录打开命令行，安装依赖：
 
 ```bash
-pip install pywin32 markdownify flask
+pip install -r requirements.txt
 ```
+
+3. 确认电脑已安装 Microsoft Word（未安装则无法转换）。
 
 ## 工作原理
 

@@ -169,7 +169,7 @@ def set_dir():
     if not raw:
         return jsonify({"error": "路径为空"}), 400
     if not re.match(r"^[A-Za-z]:[\\/]|^\\\\", raw):
-        return jsonify({"error": "请输入绝对路径，如 D:\\输出 或 C:\\Users\\Lynn\\Desktop\\xx"}), 400
+        return jsonify({"error": "请输入绝对路径，如 D:\\输出 或 C:\\Users\\你的用户名\\Desktop\\xx"}), 400
     try:
         path = os.path.abspath(raw)
         os.makedirs(path, exist_ok=True)
