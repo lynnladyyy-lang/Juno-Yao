@@ -11,14 +11,22 @@ powershell -NoProfile -Command "Get-WmiObject Win32_Process | Where-Object { $_.
 
 timeout /t 1 /nobreak >nul 2>nul
 
-rem Locate Python: prefer pythonw (no console window), fall back to python
-set "PY=pythonw"
-where pythonw >nul 2>nul
-if errorlevel 1 set "PY=python"
+rem Locate Python: prefer the bundled interpreter (if present), otherwise PATH
+set "PY="
+set "BUNDLED=%USERPROFILE%\.workbuddy\binaries\python\envs\default\Scripts\pythonw.exe"
+if exist "%BUNDLED%" set "PY=%BUNDLED%"
 
-where "%PY%" >nul 2>nul
-if errorlevel 1 (
-    echo [ERROR] Python 3 not found on PATH.
+if not defined PY (
+    where pythonw >nul 2>nul
+    if not errorlevel 1 set "PY=pythonw"
+)
+if not defined PY (
+    where python >nul 2>nul
+    if not errorlevel 1 set "PY=python"
+)
+
+if not defined PY (
+    echo [ERROR] Python 3 not found.
     echo Install Python 3 from https://www.python.org/downloads/ and check "Add python.exe to PATH".
     echo Then run:  pip install -r requirements.txt
     pause
