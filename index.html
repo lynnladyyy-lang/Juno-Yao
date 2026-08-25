@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word 转 Markdown</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #e3e6ea;
+    --text: #1f2329;
+    --muted: #6b7280;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --green: #16a34a;
+    --red: #dc2626;
+    --green-bg: #ecfdf5;
+    --red-bg: #fef2f2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  .output-bar {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--muted); flex-wrap: wrap;
+  }
+  .output-bar code {
+    background: #eef1f5; padding: 3px 8px; border-radius: 6px;
+    color: var(--text); font-size: 12px; max-width: 360px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #dirInput {
+    flex: 1; min-width: 220px; max-width: 360px;
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 13px; font-family: inherit;
+  }
+  button {
+    cursor: pointer; border: none; border-radius: 8px;
+    font-size: 14px; padding: 8px 16px; transition: background .15s, opacity .15s;
+  }
+  .btn-ghost {
+    background: #eef1f5; color: var(--text);
+  }
+  .btn-ghost:hover { background: #e2e6eb; }
+  .btn-quit { background: transparent; color: var(--muted); }
+  .btn-quit:hover { color: var(--red); }
+
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 16px 24px;
+    min-height: 0;
+  }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  section h2 {
+    font-size: 14px; font-weight: 600; margin-bottom: 12px;
+    color: var(--text);
+  }
+
+  /* 左栏：结果 */
+  #resultPanel .placeholder {
+    color: var(--muted); font-size: 13px; text-align: center;
+    margin-top: 40px;
+  }
+  #resultList { list-style: none; overflow-y: auto; flex: 1; }
+  #resultList li {
+    padding: 10px 12px; border-radius: 8px; margin-bottom: 8px;
+    font-size: 13px; line-height: 1.5;
+    border: 1px solid transparent;
+  }
+  #resultList li.ok { background: var(--green-bg); border-color: #bbf7d0; }
+  #resultList li.fail { background: var(--red-bg); border-color: #fecaca; }
+  #resultList .status { font-weight: 700; margin-right: 6px; }
+  #resultList .ok .status { color: var(--green); }
+  #resultList .fail .status { color: var(--red); }
+  #resultList .name { font-weight: 600; }
+  #resultList .msg { color: var(--muted); font-size: 12px; word-break: break-all; }
+
+  /* 右栏：选择 */
+  #dropZone {
+    border: 2px dashed #cbd5e1; border-radius: 10px;
+    padding: 28px 16px; text-align: center; color: var(--muted);
+    font-size: 14px; cursor: pointer; transition: border-color .15s, background .15s;
+    user-select: none;
+  }
+  #dropZone.drag { border-color: var(--primary); background: #eff6ff; }
+  #dropZone .link { color: var(--primary); text-decoration: underline; }
+  #fileList { list-style: none; overflow-y: auto; flex: 1; margin-top: 12px; }
+  #fileList li {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; border: 1px solid var(--border);
+    border-radius: 8px; margin-bottom: 6px; font-size: 13px;
+  }
+  #fileList .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #fileList .fsize { color: var(--muted); font-size: 12px; margin: 0 10px; }
+  #fileList .remove {
+    background: transparent; color: var(--muted); padding: 2px 8px; font-size: 16px;
+  }
+  #fileList .remove:hover { color: var(--red); }
+  #fileList .empty { color: var(--muted); font-size: 13px; text-align: center; margin-top: 24px; }
+
+  footer {
+    background: var(--panel); border-top: 1px solid var(--border);
+    padding: 14px 24px; display: flex; justify-content: center; gap: 12px;
+  }
+  #convertBtn {
+    background: var(--primary); color: #fff; font-size: 16px; font-weight: 600;
+    padding: 12px 48px; border-radius: 10px;
+  }
+  #convertBtn:hover:not(:disabled) { background: var(--primary-hover); }
+  #convertBtn:disabled { opacity: .55; cursor: not-allowed; }
+  #clearBtn { background: #eef1f5; color: var(--text); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Word → Markdown 转换器</h1>
+    <div class="output-bar">
+      <span>输出目录：</span><code id="outputDir">…</code>
+      <input type="text" id="dirInput" placeholder="粘贴或输入路径，如 D:\输出" />
+      <button class="btn-ghost" id="applyDirBtn">应用</button>
+      <button class="btn-ghost" id="chooseDirBtn">浏览…</button>
+      <button class="btn-ghost" id="openFolder">打开输出文件夹</button>
+      <button class="btn-quit" id="quitBtn" title="关闭本工具">退出</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="resultPanel">
+      <h2>转换结果</h2>
+      <ul id="resultList"></ul>
+      <p class="placeholder" id="resultPlaceholder">转换结果将显示在这里</p>
+    </section>
+
+    <section id="selectPanel">
+      <h2>选择 Word 文件</h2>
+      <div id="dropZone">
+        拖拽文件到这里，或 <span class="link">点击选择</span>（支持 .doc / .docx / .rtf）
+        <input type="file" id="fileInput" multiple accept=".doc,.docx,.rtf" hidden>
+      </div>
+      <ul id="fileList"></ul>
+      <p class="empty" id="filePlaceholder">尚未选择文件</p>
+    </section>
+  </main>
+
+  <footer>
+    <button id="convertBtn">开始转换</button>
+    <button id="clearBtn">清空列表</button>
+  </footer>
+
+<script>
+  const MAX_FILES = 100;
+  let selectedFiles = [];
+  let currentOutDir = null;  // null 表示使用后端默认目录
+
+  const dropZone = document.getElementById("dropZone");
+  const fileInput = document.getElementById("fileInput");
+  const fileList = document.getElementById("fileList");
+  const filePlaceholder = document.getElementById("filePlaceholder");
+  const resultList = document.getElementById("resultList");
+  const resultPlaceholder = document.getElementById("resultPlaceholder");
+  const convertBtn = document.getElementById("convertBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const openFolderBtn = document.getElementById("openFolder");
+  const chooseDirBtn = document.getElementById("chooseDirBtn");
+  const quitBtn = document.getElementById("quitBtn");
+  const outputDirEl = document.getElementById("outputDir");
+
+  const ALLOWED = [".doc", ".docx", ".rtf"];
+
+  function extOk(name) {
+    const dot = name.lastIndexOf(".");
+    if (dot < 0) return false;
+    return ALLOWED.includes(name.slice(dot).toLowerCase());
+  }
+
+  function addFiles(fileListInput) {
+    let added = 0, skipped = 0;
+    for (const f of fileListInput) {
+      if (!extOk(f.name)) { skipped++; continue; }
+      if (selectedFiles.some(x => x.name === f.name && x.size === f.size)) continue;
+      if (selectedFiles.length >= MAX_FILES) break;
+      selectedFiles.push(f);
+      added++;
+    }
+    if (skipped) alert(`已忽略 ${skipped} 个不支持的文件（仅支持 .doc/.docx/.rtf）`);
+    renderFileList();
+  }
+
+  function renderFileList() {
+    fileList.innerHTML = "";
+    if (selectedFiles.length === 0) {
+      filePlaceholder.style.display = "block";
+      return;
+    }
+    filePlaceholder.style.display = "none";
+    selectedFiles.forEach((f, i) => {
+      const li = document.createElement("li");
+      const name = document.createElement("span");
+      name.className = "fname";
+      name.textContent = f.name;
+      name.title = f.name;
+      const size = document.createElement("span");
+      size.className = "fsize";
+      size.textContent = (f.size / 1024).toFixed(1) + " KB";
+      const rm = document.createElement("button");
+      rm.className = "remove";
+      rm.textContent = "×";
+      rm.title = "移除";
+      rm.onclick = () => { selectedFiles.splice(i, 1); renderFileList(); };
+      li.appendChild(name);
+      li.appendChild(size);
+      li.appendChild(rm);
+      fileList.appendChild(li);
+    });
+  }
+
+  dropZone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => { addFiles(fileInput.files); fileInput.value = ""; });
+
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("drag");
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  });
+
+  function renderResults(results) {
+    resultList.innerHTML = "";
+    resultPlaceholder.style.display = "none";
+    for (const r of results) {
+      const li = document.createElement("li");
+      li.className = r.ok ? "ok" : "fail";
+      const status = document.createElement("span");
+      status.className = "status";
+      status.textContent = r.ok ? "✓" : "✗";
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = r.name;
+      const msg = document.createElement("div");
+      msg.className = "msg";
+      msg.textContent = r.ok ? ("已生成 " + r.md) : r.message;
+      li.appendChild(status);
+      li.appendChild(name);
+      li.appendChild(msg);
+      resultList.appendChild(li);
+    }
+  }
+
+  convertBtn.addEventListener("click", async () => {
+    if (selectedFiles.length === 0) { alert("请先选择要转换的 Word 文件"); return; }
+    convertBtn.disabled = true;
+    convertBtn.textContent = "转换中，请稍候…";
+    resultList.innerHTML = "";
+    resultPlaceholder.style.display = "block";
+    resultPlaceholder.textContent = "正在转换 " + selectedFiles.length + " 个文件，请勿关闭页面…";
+
+    const fd = new FormData();
+    selectedFiles.forEach(f => fd.append("files", f));
+    if (currentOutDir) fd.append("out_dir", currentOutDir);
+
+    try {
+      const resp = await fetch("/convert", { method: "POST", body: fd, cache: "no-store" });
+      const data = await resp.json();
+      if (!resp.ok) { alert(data.error || "转换失败"); }
+      else {
+        renderResults(data.results);
+        outputDirEl.textContent = data.output_dir || "…";
+      }
+    } catch (err) {
+      resultPlaceholder.textContent = "";
+      if (err instanceof TypeError && /Failed to fetch/i.test(err.message)) {
+        alert("无法连接到本地服务。\n\n可能原因：\n• 你之前点击过右上角「退出」关闭了服务\n• 服务进程已结束\n\n解决方法：重新双击 word2md.bat 启动本工具。");
+      } else {
+        alert("请求出错：" + err);
+      }
+    } finally {
+      convertBtn.disabled = false;
+      convertBtn.textContent = "开始转换";
+    }
+  });
+
+  clearBtn.addEventListener("click", () => {
+    selectedFiles = [];
+    renderFileList();
+    resultList.innerHTML = "";
+    resultPlaceholder.style.display = "block";
+    resultPlaceholder.textContent = "转换结果将显示在这里";
+  });
+
+  chooseDirBtn.addEventListener("click", async () => {
+    try {
+      const resp = await fetch("/choose_dir", { method: "POST", cache: "no-store" });
+      let data;
+      try { data = await resp.json(); } catch (parseErr) {
+        const text = await resp.text();
+        alert("选择目录失败：服务器返回了非 JSON 内容。\n可能原因：服务进程未更新，请关闭本页后重新双击 word2md.bat 启动。\n\n原始响应前 200 字：\n" + text.slice(0, 200));
+        return;
+      }
+      if (!resp.ok || data.error) {
+        alert("选择目录失败：" + (data.error || ("HTTP " + resp.status)) + "\n" + (data.traceback ? data.traceback.slice(0, 500) : ""));
+        return;
+      }
+      if (data.dir) {
+        currentOutDir = data.dir;
+        outputDirEl.textContent = currentOutDir;
+      }
+    } catch (e) {
+      alert("选择目录失败：无法连接到本地服务。\n请关闭本页后重新双击 word2md.bat 启动。");
+    }
+  });
+
+  openFolderBtn.addEventListener("click", async () => {
+    try {
+      await fetch("/open_folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dir: currentOutDir || null }),
+        cache: "no-store"
+      });
+    }
+    catch (e) { alert("打开失败：" + e); }
+  });
+
+  const dirInput = document.getElementById("dirInput");
+  const applyDirBtn = document.getElementById("applyDirBtn");
+
+  async function applyDir() {
+    const v = dirInput.value.trim();
+    if (!v) return;
+    try {
+      const resp = await fetch("/set_dir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dir: v }),
+        cache: "no-store"
+      });
+      const data = await resp.json();
+      if (!resp.ok || data.error) { alert(data.error || "路径无效"); return; }
+      currentOutDir = data.dir;
+      outputDirEl.textContent = data.dir;
+      outputDirEl.style.color = "";
+      dirInput.value = "";
+    } catch (e) {
+      alert("设置失败：无法连接本地服务，请重新双击 word2md.bat 启动");
+    }
+  }
+  applyDirBtn.addEventListener("click", applyDir);
+  dirInput.addEventListener("keydown", e => { if (e.key === "Enter") applyDir(); });
+
+  quitBtn.addEventListener("click", async () => {
+    if (!confirm("确定退出 Word 转 Markdown 工具吗？")) return;
+    try { await fetch("/shutdown", { method: "POST", cache: "no-store" }); } catch (e) {}
+    window.close();
+  });
+
+  // 初始化：获取默认输出目录；若服务不可用则红字提示
+  (async () => {
+    try {
+      const resp = await fetch("/config", { cache: "no-store" });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const data = await resp.json();
+      if (data.default_dir) outputDirEl.textContent = data.default_dir;
+    } catch (e) {
+      outputDirEl.textContent = "（服务未启动）";
+      outputDirEl.style.color = "var(--red)";
+      resultPlaceholder.textContent = "本地服务未启动，请重新双击 word2md.bat";
+      resultPlaceholder.style.color = "var(--red)";
+      resultPlaceholder.style.display = "block";
+    }
+  })();
+</script>
+</body>
+</html>
